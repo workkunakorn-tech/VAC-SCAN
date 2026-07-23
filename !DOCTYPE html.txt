@@ -112,7 +112,7 @@
 
 <script>
     // ⚠️ นำ URL Web App อันใหม่มาวางที่นี่
-    const BACKEND_URL = "https://script.google.com/macros/s/AKfycbyjGx4nmEdL7tABfYGmFjPB-7Rn4_h901ZQ53oTRbAtCF5BWPOJunqaIgxQm_vCXU3G/exec"; 
+    const BACKEND_URL = "https://script.google.com/macros/s/AKfycbyi7MOJh7mtKWXYsyyzNCcMeeOTZoMVyHscnPkmoM5h3BTCUJTcVYe3-45oTlxWip_c/exec"; 
 
     let productDB = {}; // เก็บฐานข้อมูลสินค้า
     let html5QrcodeScanner = null;
