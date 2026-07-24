@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VAC-SCAN | ระบบนับสต็อกสินค้า</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    
+    <style>
+        * { box-sizing: border-box; font-family: 'Prompt', sans-serif; }
+        body { background-color: #f6f8fa; margin: 0; padding: 20px 10px; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; }
+        .container { background: #ffffff; width: 100%; max-width: 450px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 24px; position: relative; }
+        .header { text-align: center; font-size: 22px; font-weight: 600; color: #1e293b; margin-bottom: 15px; }
+        .section-title { font-size: 14px; color: #64748b; font-weight: 500; margin-bottom: 8px; }
+        
+        /* กล่องกรอกชื่อผู้สแกน */
+        .user-input-box { display: flex; align-items: center; gap: 8px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px 14px; border-radius: 14px; margin-bottom: 20px; }
+        .user-input-box span { font-size: 13px; color: #64748b; white-space: nowrap; font-weight: 500; }
+        .user-input-box input { width: 100%; border: none; background: transparent; font-size: 14px; font-weight: 500; color: #0f172a; outline: none; }
+        
+        /* ปุ่มเปิดกล้อง */
+        .btn-scan-toggle { display: flex; justify-content: center; align-items: center; gap: 8px; background: #2563eb; color: white; border: none; width: 100%; padding: 14px; border-radius: 14px; font-size: 16px; font-weight: 500; cursor: pointer; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2); margin-bottom: 20px; }
+        
+        .scanner-wrapper { position: relative; width: 100%; border-radius: 16px; overflow: hidden; margin-bottom: 15px; background: #000; }
+        #reader { width: 100%; border: none !important; }
+        .laser-line { display: none; position: absolute; top: 50%; left: 5%; width: 90%; height: 2px; background-color: #ef4444; box-shadow: 0 0 8px #ef4444; z-index: 10; pointer-events: none; transform: translateY(-50%); animation: blinkLaser 1s infinite; }
+        @keyframes blinkLaser { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+        .alert-box { display: none; background: #fef2f2; border: 1px solid #fee2e2; color: #dc2626; padding: 12px; border-radius: 12px; font-size: 13px; text-align: center; margin-bottom: 20px; }
+        
+        /* ตารางประวัติการสแกน */
+        .history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .history-table th { color: #94a3b8; font-weight: 400; padding: 8px 4px; text-align: left; border-bottom: 1px solid #f1f5f9; }
+        .history-table td { padding: 12px 4px; color: #334155; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        .status-loading { text-align: center; color: #94a3b8; padding: 20px 0; font-size: 13px; }
+
+        #flashOverlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(34, 197, 94, 0.7); z-index: 99999; pointer-events: none; opacity: 0; display: none; }
+
+        /* ป๊อปอัปยืนยันการบันทึก */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); display: none; justify-content: center; align-items: center; z-index: 9998; padding: 20px; }
+        .modal-content { background: white; width: 100%; max-width: 380px; border-radius: 24px; padding: 24px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+        .modal-barcode { background: #f1f5f9; padding: 8px 12px; border-radius: 10px; font-size: 14px; font-weight: 600; color: #64748b; margin: 10px 0 6px 0; }
+        
+        .modal-product-name { font-size: 16px; font-weight: 600; color: #2563eb; background: #eff6ff; padding: 12px; border-radius: 12px; border: 1px dashed #bfdbfe; margin-bottom: 18px; word-wrap: break-word; line-height: 1.4; }
+
+        .qty-container { display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 20px; }
+        .btn-qty { background: #f1f5f9; border: none; width: 48px; height: 48px; border-radius: 12px; font-size: 24px; font-weight: 600; cursor: pointer; }
+        .qty-display { font-size: 24px; font-weight: 600; width: 100px; text-align: center; border: 2px solid #cbd5e1; border-radius: 12px; padding: 6px 5px; outline: none; }
+        .btn-submit { background: #22c55e; color: white; border: none; width: 100%; padding: 14px; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2); margin-bottom: 10px; }
+        .btn-cancel { background: #f1f5f9; color: #64748b; border: none; width: 100%; padding: 14px; border-radius: 14px; font-size: 16px; font-weight: 600; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div id="flashOverlay"></div>
+
+<div class="modal-overlay" id="qtyModal">
+    <div class="modal-content">
+        <div style="font-size: 18px; font-weight: 600; color: #1e293b;">🎯 สแกนสำเร็จ!</div>
+        
+        <div class="modal-barcode" id="modalBarcodeTxt">---------</div>
+        <div class="modal-product-name" id="modalProductName">กำลังค้นหาชื่อสินค้า...</div>
+        
+        <div class="section-title">ระบุจำนวนสินค้า</div>
+        <div class="qty-container">
+            <button class="btn-qty" onclick="changeQty(-1)">-</button>
+            <input type="number" class="qty-display" id="qtyInput" value="1" min="1" inputmode="numeric" pattern="[0-9]*" onclick="this.select()">
+            <button class="btn-qty" onclick="changeQty(1)">+</button>
+        </div>
+        
+        <button class="btn-submit" onclick="submitData()">💾 บันทึกข้อมูล</button>
+        <button class="btn-cancel" onclick="cancelScan()">❌ ยกเลิก</button>
+    </div>
+</div>
+
+<div class="container">
+    <div class="header">📦 VAC-SCAN</div>
+    
+    <div class="user-input-box">
+        <span>👤 ผู้บันทึก:</span>
+        <input type="text" id="usernameInput" placeholder="พิมพ์ชื่อผู้สแกนข้อมูล..." oninput="saveUser()">
+    </div>
+    
+    <button class="btn-scan-toggle" id="scanBtn" onclick="toggleScanner()">📷 เปิดกล้องสแกนเนอร์</button>
+    
+    <div class="scanner-wrapper">
+        <div class="laser-line" id="laser"></div>
+        <div id="reader"></div>
+    </div>
+    
+    <div class="alert-box" id="alertBox"></div>
+    
+    <div style="margin-top: 10px;">
+        <div style="font-size: 15px; font-weight: 500; color: #475569; margin-bottom: 12px;">📋 5 รายการล่าสุดวันนี้</div>
+        <table class="history-table" id="historyTable" style="display: none;">
+            <thead>
+                <tr>
+                    <th style="width: 20%;">เวลา</th>
+                    <th style="width: 65%;">รายการสินค้า</th>
+                    <th style="width: 15%; text-align: center;">จำนวน</th>
+                </tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+        </table>
+        <div class="status-loading" id="tableStatus">กำลังโหลดประวัติ...</div>
+    </div>
+</div>
+
+<script>
+    // ⚠️ นำ URL Web App ของคุณมาวางแทนที่ข้อความข้างล่างนี้
+    const BACKEND_URL = "https://script.google.com/macros/s/AKfycbyo39lVTcMhXh4CGs-vA99LKHMhiafFQ8DMqDZMXBNgSGdQNUe7JbFKLuaF1hNpvzxP/exec"; 
+
+    let productDB = {}; 
+    let html5QrcodeScanner = null;
+    let isScanning = false;
+    let isModalOpen = false; 
+    let lastScannedBarcode = ""; 
+    let audioCtx = null; 
+    let consecutiveCount = 0;
+    let lastCheckedText = "";
+
+    window.onload = async function() {
+        const savedUser = localStorage.getItem('stock_scanner_user');
+        if (savedUser) {
+            document.getElementById('usernameInput').value = savedUser;
+        }
+        await loadDatabase();
+        loadHistory();
+    };
+
+    function saveUser() {
+        const name = document.getElementById('usernameInput').value.trim();
+        localStorage.setItem('stock_scanner_user', name);
+    }
+
+    async function loadDatabase() {
+        try {
+            const res = await fetch(BACKEND_URL + "?action=getDB");
+            const data = await res.json();
+            data.forEach(item => {
+                productDB[item.barcode] = item.name;
+            });
+        } catch(err) {
+            console.log("ไม่สามารถโหลด Database สินค้าได้", err);
+        }
+    }
+
+    function initAudio() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playBeepSound() {
+        try {
+            initAudio();
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.type = 'sine'; oscillator.frequency.setValueAtTime(1046.50, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(0.20, audioCtx.currentTime);
+            oscillator.connect(gainNode); gainNode.connect(audioCtx.destination);
+            oscillator.start(); oscillator.stop(audioCtx.currentTime + 0.10);
+        } catch (e) {}
+    }
+
+    function triggerGreenFlash() {
+        const flash = document.getElementById('flashOverlay');
+        flash.style.display = 'block'; flash.style.opacity = '1';
+        setTimeout(() => { flash.style.opacity = '0'; setTimeout(() => { flash.style.display = 'none'; }, 30); }, 120);
+    }
+
+    function changeQty(amount) {
+        const qtyInput = document.getElementById('qtyInput');
+        let currentVal = parseInt(qtyInput.value) || 1;
+        currentVal += amount;
+        if(currentVal < 1) currentVal = 1;
+        qtyInput.value = currentVal;
+    }
+
+    function showAlert(msg, isError = true) {
+        const box = document.getElementById('alertBox');
+        if(msg) {
+            box.innerHTML = msg;
+            box.style.background = isError ? "#fef2f2" : "#f0fdf4";
+            box.style.borderColor = isError ? "#fee2e2" : "#bbf7d0";
+            box.style.color = isError ? "#dc2626" : "#16a34a";
+            box.style.display = 'block';
+        } else { box.style.display = 'none'; }
+    }
+
+    function toggleScanner() {
+        initAudio();
+        const scanBtn = document.getElementById('scanBtn');
+        const laser = document.getElementById('laser');
+
+        if (!isScanning) {
+            showAlert(null);
+            scanBtn.innerText = "🛑 ปิดกล้องสแกนเนอร์"; scanBtn.style.background = "#dc2626"; laser.style.display = "block";
+            consecutiveCount = 0; lastCheckedText = "";
+
+            html5QrcodeScanner = new Html5Qrcode("reader");
+            html5QrcodeScanner.start(
+                { facingMode: "environment" }, 
+                {
+                    fps: 20,
+                    qrbox: function(width, height) { return { width: Math.floor(width * 0.95), height: Math.floor(height * 0.40) }; },
+                    formatsToSupport: [Html5QrcodeSupportedFormats.CODE_39, Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.EAN_13]
+                },
+                onScanSuccess, onScanError
+            ).then(() => { isScanning = true; }).catch(err => {
+                scanBtn.innerText = "📷 เปิดกล้องสแกนเนอร์"; scanBtn.style.background = "#2563eb"; laser.style.display = "none"; isScanning = false;
+                showAlert(`❌ กล้องไม่ทำงาน: โปรดเปิดลิงก์บน Chrome หรือ Safari โดยตรง`);
+            });
+        } else { stopScanner(); }
+    }
+
+    function stopScanner() {
+        const scanBtn = document.getElementById('scanBtn');
+        const laser = document.getElementById('laser');
+        if (html5QrcodeScanner && isScanning) {
+            html5QrcodeScanner.stop().then(() => {
+                document.getElementById('reader').innerHTML = '';
+                scanBtn.innerText = "📷 เปิดกล้องสแกนเนอร์"; scanBtn.style.background = "#2563eb"; laser.style.display = "none"; isScanning = false;
+            });
+        }
+    }
+
+    function onScanSuccess(decodedText, decodedResult) {
+        if (isModalOpen) return;
+        let cleanedText = decodedText.trim();
+
+        if (cleanedText === lastCheckedText) { consecutiveCount++; } 
+        else { lastCheckedText = cleanedText; consecutiveCount = 1; return; }
+
+        if (consecutiveCount < 2) return;
+        
+        isModalOpen = true; consecutiveCount = 0; lastCheckedText = "";
+        playBeepSound(); triggerGreenFlash();
+        
+        lastScannedBarcode = cleanedText;
+        document.getElementById('modalBarcodeTxt').innerText = "บาร์โค้ด: " + cleanedText;
+        
+        const productName = productDB[cleanedText] || "⚠️ ไม่พบชื่อสินค้าใน DATABASE";
+        const nameBox = document.getElementById('modalProductName');
+        nameBox.innerText = productName;
+        nameBox.style.color = productDB[cleanedText] ? "#2563eb" : "#dc2626";
+
+        document.getElementById('qtyInput').value = 1;
+        document.getElementById('qtyModal').style.display = 'flex';
+    }
+
+    function onScanError(err) {}
+
+    function cancelScan() {
+        document.getElementById('qtyModal').style.display = 'none';
+        isModalOpen = false; consecutiveCount = 0; lastCheckedText = "";
+        showAlert("❌ ยกเลิกการบันทึกแล้ว", true);
+        setTimeout(() => { showAlert(null); }, 1000);
+    }
+
+    function submitData() {
+        const qtyInput = document.getElementById('qtyInput');
+        let qty = parseInt(qtyInput.value) || 1;
+        const currentUsername = document.getElementById('usernameInput').value.trim() || "-";
+
+        document.getElementById('qtyModal').style.display = 'none';
+        showAlert("⏳ กำลังบันทึกข้อมูล...", false);
+
+        fetch(BACKEND_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                barcode: lastScannedBarcode,
+                qty: qty,
+                user: currentUsername
+            })
+        })
+        .then(() => {
+            showAlert("✅ บันทึกสำเร็จเรียบร้อย!", false);
+            setTimeout(() => { showAlert(null); }, 1200);
+            isModalOpen = false;
+            loadHistory();
+        })
+        .catch(err => {
+            showAlert("❌ เกิดข้อผิดพลาดในการเชื่อมต่อ");
+            isModalOpen = false;
+        });
+    }
+
+    function loadHistory() {
+        const tableStatus = document.getElementById('tableStatus');
+        const historyTable = document.getElementById('historyTable');
+        const historyBody = document.getElementById('historyBody');
+
+        fetch(BACKEND_URL + "?action=getHistory")
+        .then(res => res.json())
+        .then(data => {
+            if(data && data.length > 0) {
+                historyBody.innerHTML = '';
+                data.forEach(item => {
+                    const itemName = productDB[item.barcode] || 'ไม่พบข้อมูลสินค้า';
+                    historyBody.innerHTML += `
+                        <tr>
+                            <td style="color: #64748b; font-size:11px;">${item.timeStr || '-'}</td>
+                            <td>
+                                <div style="font-weight: 500; color: #1e293b; font-size: 13px;">${itemName}</div>
+                                <div style="font-size: 11px; color: #94a3b8;">${item.barcode || '-'}</div>
+                            </td>
+                            <td style="text-align: center; font-weight:600;">${item.qty || '1'}</td>
+                        </tr>
+                    `;
+                });
+                tableStatus.style.display = 'none';
+                historyTable.style.display = 'table';
+            } else { tableStatus.innerText = 'ยังไม่มีประวัติการบันทึกในวันนี้'; }
+        })
+        .catch(err => { tableStatus.innerText = 'ไม่สามารถโหลดประวัติได้'; });
+    }
+</script>
+
+</body>
+</html>
